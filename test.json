@@ -1,0 +1,8 @@
+{'success': True, 
+'newRole': {'pk': 'Portfolio Hiway', 
+'name': 'Test Role for integration testing', 
+'description': 'Role for testing',
+ 'permissions': ['user-create', 'user-update'
+        ], 'createdBy': '986ff878-b91d-4298-9dad-9ed3ea1a817b', 'createdAt': '2023-05-16T20: 55: 12.134Z', 'updatedAt': '2023-05-16T20: 55: 12.134Z', 'id': '0a6b6dba-2b83-42d8-b980-19de092e36d3'
+    }
+}
