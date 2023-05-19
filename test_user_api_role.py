@@ -3,7 +3,7 @@ import os
 import requests
 import json
 load_dotenv()
-from utils.helpers import create_role,get_role,delete_role,update_role,create_role_payload,update_role_payload,user_api_headers
+from utils.helpers import *
 key = os.getenv('key')
 baseUrl = os.getenv("baseUrl")
 organization = os.getenv("organization")
@@ -97,3 +97,86 @@ def test_can_delete_role():
     assert delete_role_data['deleted']['name'] == payload_json["name"]
     assert delete_role_data['deleted']['description'] == payload_json["description"]
     assert set(delete_role_data['deleted']['permissions']) == set(payload_json["permissions"])
+
+def test_can_get_all_roles():
+    # create a role
+    payload = create_role_payload()
+    create_role_response = create_role(f"{baseUrl}/organization/{organization}/roles", headers=headers,payload=payload)
+    create_role_data = create_role_response.json()
+    # get roleId
+    roleId = create_role_data['newRole']['id']
+    # get all roles
+    get_all_roles_response = get_all_roles(f"{baseUrl}/organization/{organization}/roles", headers)
+    status_code = get_all_roles_response.status_code
+    get_all_roles_data = get_all_roles_response.json()
+    print(f"Status code: {status_code}")
+    print(f"Total number of roles: {len(get_all_roles_data['roles'])}")
+    role_ids = [role['id'] for role in get_all_roles_data['roles']]
+    # test the status and new role in the list of roles
+    assert status_code == 200, f"Can't get all the roles, Actual status code {status_code}"
+    assert get_all_roles_data['success'] == True, f"Can't get all the roles, Actual response {get_all_roles_data['success']}"
+    assert roleId in role_ids, f"Newly created roles is not in roles list"
+    # delete the role after the test
+    delete_role_response = delete_role(f"{baseUrl}/roles/{roleId}", headers)
+    assert delete_role_response.status_code == 200, f"Can't delete the role, Actual status code {delete_role_response.status_code}"
+
+def test_can_assign_and_unassign_user_role():
+    # create a role
+    new_role_payload = create_role_payload()
+    create_role_response = create_role(f"{baseUrl}/organization/{organization}/roles", headers=headers,payload=new_role_payload)
+    create_role_data = create_role_response.json()
+    # get roleId
+    roleId = create_role_data['newRole']['id']
+    # create a user
+    new_user_payload = create_user_payload()
+    create_user_response = create_user(f"{baseUrl}/organization/{organization}/users", headers=headers,payload=new_user_payload)
+    create_user_data = create_user_response.json()
+    # get userId
+    userId = create_user_data['newUser']['id']
+    # assign role to user
+    assign_role_response = assign_user_role(f"{baseUrl}/users/{userId}/roles/{roleId}", headers)
+    status_code = assign_role_response.status_code
+    assign_role_data = assign_role_response.json()
+    print(f"Status code: {status_code}")
+    print(f"Response: {assign_role_data}")
+    # test the response with data
+    assert status_code == 200, f"Can't assign role to user, Actual status code {status_code}"
+    assert assign_role_data['success'] == True, f"Can't assign role to user, Actual response {assign_role_data['success']}"
+    # get roles for users
+    get_roles_for_user_response = get_roles_for_user(f"{baseUrl}/users/{userId}/roles", headers)
+    status_code = get_roles_for_user_response.status_code
+    get_roles_for_user_data = get_roles_for_user_response.json()
+    print(f"Status code: {status_code}")
+    print(f"Response: {get_roles_for_user_data}")
+    # test that user has the new role
+    assert status_code == 200, f"Can't get roles for user, Actual status code {status_code}"
+    assert get_roles_for_user_data['success'] == True, f"Can't get roles for user, Actual response {get_roles_for_user_data['success']}"
+    assert roleId in [role['id'] for role in get_roles_for_user_data['roles']], f"Newly created role is not in roles list for user"
+    
+    # unassigne role from user
+    unassign_role_response = unassign_user_role(f"{baseUrl}/users/{userId}/roles/{roleId}", headers)
+    status_code = unassign_role_response.status_code
+    unassign_role_data = unassign_role_response.json()
+    print(f"Status code: {status_code}")
+    print(f"Response: {unassign_role_data}")
+    # test the response with data
+    assert status_code == 200, f"Can't unassign role from user, Actual status code {status_code}"
+    assert unassign_role_data['success'] == True, f"Can't unassign role from user, Actual response {unassign_role_data['success']}"
+    # get roles for users again
+    get_roles_for_user_response = get_roles_for_user(f"{baseUrl}/users/{userId}/roles", headers)
+    status_code = get_roles_for_user_response.status_code
+    get_roles_for_user_data = get_roles_for_user_response.json()
+
+    # test user doesn't have the role anymore
+    assert status_code == 200, f"Can't get roles for user, Actual status code {status_code}"
+    assert get_roles_for_user_data['success'] == True, f"Can't get roles for user, Actual response {get_roles_for_user_data['success']}"
+    assert roleId not in [role['id'] for role in get_roles_for_user_data['roles']], f"User does not have the role after unassigning"
+
+    # delete the user after the test
+    delete_user_response = delete_user(f"{baseUrl}/users/{userId}", headers)
+    assert delete_user_response.status_code == 200, f"Can't delete the user, Actual status code {delete_user_response.status_code}"
+    # delete the role after the test
+    # might not beable to delete role, need to un assign first
+    delete_role_response = delete_role(f"{baseUrl}/roles/{roleId}", headers)
+    assert delete_role_response.status_code == 200, f"Can't delete the role, Actual status code {delete_role_response.status_code}"
+
